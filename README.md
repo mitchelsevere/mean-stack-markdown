@@ -17,6 +17,7 @@ Before writing any code, you want to do the following to set up your fullstack a
 * `cors`
 * `jsonwebtoken`
 * `body-parser`
+* `passport`
 * `passport-jwt`
 4. yarn add --dev `nodemon`
 
