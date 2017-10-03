@@ -87,6 +87,10 @@ lastname: {
 email: {
   type:String,
   required: true,
+},
+password: {
+  type:String,
+  required: true,
 }
 
 const User = mongoose.model('User' UserSchema);
@@ -167,5 +171,70 @@ app.listen(port, () => {
 // setting up specific routes
 const userRoutes = require('./routes/user-routes');
 app.use('/users', userRoutes);
+```
+</details>
+
+## Step 3: Setup UserRoutes and UserController
+We need to create our `routes` folder and touch `user-routes.js` inside of it.
+In our `user-routes` we'll set up our routes to talk to our controllers.
+In `user-routes`:
+```js
+const express = require('express');
+const userController = require('../controllers/users-controller.js');
+
+const userRouter = express.Router();
+
+userRouter.get('/profile', usersController.index);
+userRouter.post('/register', usersController.create);
+userRouter.post('/authenticate', usersController.authenticate);
+userRouter.post('/validate', usersController.validate);
+
+module.exports = userRouter;
+
+```
+Back in our root directory, we want to create our `controllers` folder and touch `user-controller.js` inside of it.
+In `user-controller.js`:
+```js
+const passport = require('passport');
+const jwt = require('jsonwebtoken');
+const User = require('../models/user');
+
+const userController = {};
+
+userController.create = (req, res) => {
+  let newUser = new User({
+    username: req.body.username,
+    firstname: req.body.firstname,
+    lastname: req.body.lastname,
+    email: req.body.email,
+    password: req.body.password,
+  });
+  
+  User.addNewUser(newUser, (err, user) => {
+    err ? res.json({success: false, msg: 'Failed to register user'}) : res.json({success: true, msg: 'User registered!'})
+  }
+}
+```
+We should be able to test our User creation in postman at the /user route.
+
+<hr>
+Now our file structure should look like this:
+<details>
+<summary> File Structure </summary>
+  
+```bash
+├── README.md
+├── app.js
+├── controllers
+│   └── users-controller.js
+├── db
+│   └── config.js
+├── models
+│   └── user.js
+├── node_modules
+├── package.json
+├── public
+└── routes
+    └── user-routes.js
 ```
 </details>
