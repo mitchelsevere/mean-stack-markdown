@@ -314,3 +314,18 @@ usersContoller.authenticate = (req, res) => {
     }
   });
 }
+```
+
+Lets add the `comparePassword` method to our `user.js` model.
+In `user.js`:
+```js
+module.exports = {
+...,
+  comparePassword: function(clientPassword, hash, callback) {
+    bcrypt.compare(clientPassword, hash, (err, isMatch) => {
+      if(err) throw err;
+      callback(null, isMatch)
+    });
+  }
+}
+```
