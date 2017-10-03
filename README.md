@@ -72,7 +72,7 @@ In our `user.js`:
 ```js
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const db = require('../models/config');
+const config = require('../db/config');
 
 const UserSchema = mongoose.Schame({
 username: {
@@ -118,19 +118,19 @@ module.exports = {
 ```
 Lastly back in `app.js`, we want to import the `db/config` file we created earlier to finish our mongoose setup.
 ```js
-const db = require('./db/config');
+const config = require('./db/config');
 
-mongoose.connect(db.database);
+mongoose.connect(config.database);
 
 mongoose.connection.on('connected', () => {
-  console.log('Connect to database', db.database);
+  console.log('Connect to database', config.database);
 }
 
 mongoose.connection.on('error', err => {
   console.log('Database error', err);
 }
 ```
-Our final app.js should look like this:
+Our app.js should now look like this:
 <details>
 <summary>app.js</summary>
   
@@ -141,17 +141,17 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const passport = require('passport');
 const mongoose = require('mongoose');
-const db = require('./db/config');
+const config = require('./db/config');
 
 // initialize express app
 const app = express();
 const port = process.env.PORT || 3000;
 
 // mongodb setup
-mongoose.connect(db.database);
+mongoose.connect(config.database);
 
 mongoose.connection.on('connected', () => {
-  console.log('Connect to database', db.database);
+  console.log('Connect to database', config.database);
 }
 
 mongoose.connection.on('error', err => {
@@ -199,6 +199,7 @@ In `user-controller.js`:
 const passport = require('passport');
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
+const config = require('../db/config');
 
 const userController = {};
 
@@ -239,3 +240,77 @@ Now our file structure should look like this:
     └── user-routes.js
 ```
 </details>
+
+## Step 4: Setting up passport
+In `app.js`, we want to add some passport middleware:
+```js
+app.use(passport.initialize());
+app.use(passport.session());
+```
+
+Now let's create a strategy using `passport-jwt`. 
+We want to create a `services` folder on our root directory. Inside it let's touch `passport.js`:
+
+Inside `passport.js`:
+```js
+const JwtStrategy = require('passport-jwt').Strategy;
+const ExtractJwt = require('passport-jwt').ExtractJwt;
+const User = require('../models/user');
+const config = require('../db/config');
+
+module.exports = function(passport) {
+  let opts = {};
+  opts.jwtFromRequest = ExtractJwt.fromAuthHeaderWithScheme('jwt');
+  opts.secretOrKey = config.secret;
+  passport.use(new JwtStrategy(opts, (jwt_payload, done) => {
+    User.getUserById({jwt_payload.sub}, (err, user) => {
+      if (err) return done(err, false);
+      return user ? done(null, user) : done(null, false);
+    });
+  }));
+}
+```
+
+Back in our `app.js`, we want to import our `passport.js` file and pass the `passport` module to it.
+In `app.js`:
+```js
+const jwtPassport = require('./services/passport');
+
+jwtPassport(passport);
+```
+
+Now in our `users-controller.js`, we want to create our `authenticate` method:
+In `users-controller.js`:
+```js
+usersContoller.authenticate = (req, res) => {
+  let username = req.body.username;
+  let password = req.body.password;
+  
+  User.getUserByUsername(username, (err, user) => {
+    if(err) throw err;
+    if (!user) return res.json({success: false, msg: 'User not found'});
+  }
+  
+  User.comparePassword(password, user.password, (err, isMatch) => {
+    if(err) throw err;
+    if(isMatch) {
+      let token = jwt.sign(user, config.secret, {
+        expiresIn: 604800 // one week
+      });
+      
+      res.json({
+        success: true,
+        token: 'JWT', token,
+        user: {
+          id: user._id,
+          username: user.username,
+          firstname: user.firstname,
+          lastname: user.lastname,
+          email: user.email,
+        }
+      });
+    } else {
+      return res.json({success: false, msg: 'Wrong password'});
+    }
+  });
+}
